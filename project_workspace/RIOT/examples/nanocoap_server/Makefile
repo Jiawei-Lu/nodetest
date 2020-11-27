@@ -3,7 +3,9 @@ APPLICATION = nanocoap_server
 
 # If no BOARD is found in the environment, use this default:
 BOARD ?= native
-
+CFLAGS += -DCONFIG_IEEE802154_DEFAULT_TXPOWER=-25
+CFLAGS += -DCONFIG_IEEE802154_DEFAULT_SUBGHZ_CHANNEL=0
+CFLAGS += -DCONFIG_IEEE802154_DEFAULT_SUBGHZ_PAGE=2
 # This has to be the absolute path to the RIOT base directory:
 RIOTBASE ?= $(CURDIR)/../..
 
@@ -18,6 +20,10 @@ USEMODULE += gnrc_sock_udp
 # Additional networking modules that can be dropped if not needed
 USEMODULE += gnrc_icmpv6_echo
 
+
+USEMODULE += ds18
+# USEMODULE += xtimer
+# USEMODULE += printf_float
 USEMODULE += nanocoap_sock
 
 # include this for nicely formatting the returned internal value

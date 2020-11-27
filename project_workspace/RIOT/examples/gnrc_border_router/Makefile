@@ -3,7 +3,8 @@ APPLICATION = gnrc_border_router
 
 # If no BOARD is found in the environment, use this default:
 BOARD ?= samr21-xpro
-
+DEFAULT_CHANNEL = 0
+CFLAGS += -DCONFIG_IEEE802154_DEFAULT_TXPOWER=11
 # This has to be the absolute path to the RIOT base directory:
 RIOTBASE ?= $(CURDIR)/../..
 

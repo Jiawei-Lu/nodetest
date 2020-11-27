@@ -1,6 +1,3 @@
-/* Simple coap node with a sensor and RPL forced to start
-*/
-
 /*
  * Copyright (C) 2016 Kaspar Schleiser <kaspar@schleiser.de>
  *
@@ -29,11 +26,7 @@
 #include "board.h"
 #include "periph/gpio.h"
 #include "shell.h"
-#include "net/gnrc/netif.h"
-#include "net/gnrc/rpl.h"
-#include "net/gnrc/rpl/structs.h"
-#include "net/gnrc/rpl/dodag.h"
-#include "common.h"
+
 #include "si70xx_params.h"
 #include "si70xx.h"
 #define SENSOR_POWER_PIN GPIO_PIN(PA, 28)
@@ -42,7 +35,6 @@
 
 #define MAIN_QUEUE_SIZE     (8)
 static msg_t _main_msg_queue[MAIN_QUEUE_SIZE];
-at86rf2xx_t devs[AT86RF2XX_NUM];
 
 /* import "ifconfig" shell command, used for printing addresses */
 extern int _gnrc_netif_config(int argc, char **argv);
@@ -84,7 +76,6 @@ static const shell_command_t shell_commands[] = {
 
 int main(void)
 {
-    at86rf2xx_set_txpower(devs, 1);
     puts("RIOT nanocoap example application with shell and ds18 temperature sensor");
     /* turn on the temp sensor and init power toggle pin */
     gpio_init(SENSOR_POWER_PIN, GPIO_OUT); 
@@ -101,9 +92,7 @@ int main(void)
 
     puts("Waiting for address autoconfiguration...");
     xtimer_sleep(3);
-    /* Quick hack to start RPL properly. Fixed interface Num for now 
-    */
-    gnrc_rpl_init(5);
+
     /* initialize nanocoap server instance by starting thread */
     thread_create(nanocoap_thread_stack, sizeof(nanocoap_thread_stack),
                   THREAD_PRIORITY_MAIN + 1, THREAD_CREATE_STACKTEST,

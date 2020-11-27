@@ -3,7 +3,9 @@ APPLICATION = gnrc_border_router
 
 # If no BOARD is found in the environment, use this default:
 BOARD = samr30-xpro
-DEFAULT_CHANNEL = 0
+
+CFLAGS += -DCONFIG_IEEE802154_DEFAULT_SUBGHZ_CHANNEL=0
+CFLAGS += -DCONFIG_IEEE802154_DEFAULT_SUBGHZ_PAGE=2
 
 # This has to be the absolute path to the RIOT base directory:
 RIOTBASE ?= $(CURDIR)/../RIOT
@@ -37,7 +39,7 @@ GNRC_NETIF_NUMOF := 2
 #CFLAGS += -DSLIP_BAUDRATE=$(SLIP_BAUDRATE)
 # Include SLIP package for IP over Serial communication
 #USEMODULE += slipdev
-
+# USEMODULE += at86rf2xx
 # Include packages that pull up and auto-init the link layer.
 # NOTE: 6LoWPAN will be included if IEEE802.15.4 devices are present
 USEMODULE += gnrc_netdev_default

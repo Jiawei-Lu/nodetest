@@ -46,6 +46,7 @@ static ssize_t _riot_board_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len, vo
             COAP_FORMAT_TEXT, (uint8_t*)RIOT_BOARD, strlen(RIOT_BOARD));
 }
 
+
 static ssize_t _riot_block2_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len, void *context)
 {
     (void)context;
@@ -79,6 +80,41 @@ static ssize_t _riot_block2_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len, v
     return coap_block2_build_reply(pkt, COAP_CODE_205,
                                    buf, len, payload_len, &slicer);
 }
+static ssize_t _riot_tem_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len, void *context)
+{
+    
+     (void) context;
+
+     ssize_t p = 0;
+     char rsp[16];
+     unsigned code = COAP_CODE_EMPTY;
+     int16_t temperature;
+     ds18_t dev;
+     int result;
+     gpio_set(DS18_PARAM_PIN);
+     /* get temp in celsius */
+     result = ds18_init(&dev, &ds18_params[0]);
+     if (result == DS18_ERROR) {
+        puts("[Error] The sensor pin could not be initialized");
+        return 1;
+     }
+   
+     if (ds18_get_temperature(&dev, &temperature) == DS18_OK) {
+         bool negative = (temperature < 0);
+         if (negative) {
+            temperature = -temperature;
+         }
+         float a = (float)temperature / 100;
+         p += fmt_float(rsp,a,2);
+         code = COAP_CODE_CONTENT;
+     }
+     else code = COAP_CODE_INTERNAL_SERVER_ERROR;
+     gpio_clear(DS18_PARAM_PIN);
+
+     return coap_reply_simple(pkt, code, buf, len,
+             COAP_FORMAT_TEXT, (uint8_t*)rsp, p);
+}
+
 
 static ssize_t _riot_value_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len, void *context)
 {
@@ -160,41 +196,6 @@ ssize_t _sha256_handler(coap_pkt_t* pkt, uint8_t *buf, size_t len, void *context
     }
 
     return pkt_pos - (uint8_t*)pkt->hdr;
-}
-
-static ssize_t _riot_tem_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len, void *context)
-{
-    
-     (void) context;
-
-     ssize_t p = 0;
-     char rsp[16];
-     unsigned code = COAP_CODE_EMPTY;
-     int16_t temperature;
-     ds18_t dev;
-     int result;
-     gpio_set(DS18_PARAM_PIN);
-     /* get temp in celsius */
-     result = ds18_init(&dev, &ds18_params[0]);
-     if (result == DS18_ERROR) {
-        puts("[Error] The sensor pin could not be initialized");
-        return 1;
-     }
-   
-     if (ds18_get_temperature(&dev, &temperature) == DS18_OK) {
-         bool negative = (temperature < 0);
-         if (negative) {
-            temperature = -temperature;
-         }
-         float a = (float)temperature / 100;
-         p += fmt_float(rsp,a,2);
-         code = COAP_CODE_CONTENT;
-     }
-     else code = COAP_CODE_INTERNAL_SERVER_ERROR;
-     gpio_clear(DS18_PARAM_PIN);
-
-     return coap_reply_simple(pkt, code, buf, len,
-             COAP_FORMAT_TEXT, (uint8_t*)rsp, p);
 }
 
 /* must be sorted by path (ASCII order) */

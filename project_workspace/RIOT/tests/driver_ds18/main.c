@@ -20,7 +20,7 @@
 
 #include <stdio.h>
 #include <inttypes.h>
-
+#define DS18_PARAM_PIN  GPIO_PIN(PA,18)
 #include "board.h"
 #include "ds18.h"
 #include "ds18_params.h"

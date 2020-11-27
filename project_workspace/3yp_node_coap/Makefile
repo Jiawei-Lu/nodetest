@@ -5,6 +5,10 @@ APPLICATION = nanocoap_server
 BOARD = 3yp-node
 DEFAULT_CHANNEL = 0 # 868MHz
 
+CFLAGS += -DCONFIG_IEEE802154_DEFAULT_SUBGHZ_CHANNEL=0
+CFLAGS += -DCONFIG_IEEE802154_DEFAULT_SUBGHZ_PAGE=2
+
+
 # This has to be the absolute path to the RIOT base directory:
 RIOTBASE ?= $(CURDIR)/../RIOT/
 
@@ -45,8 +49,8 @@ USEMODULE += nanocoap_sock
 USEMODULE += fmt
 
 # include mac layer to use
-USEMODULE += gnrc_lwmac
-CFLAGS += -DGNRC_LWMAC_ENABLE_LOW_POWER=0
+#USEMODULE += gnrc_lwmac
+#CFLAGS += -DGNRC_LWMAC_ENABLE_LOW_POWER=0
 
 # Comment this out to enable code in RIOT that does safety checking
 # which is not needed in a production environment but helps in the

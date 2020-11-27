@@ -10,34 +10,22 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "si70xx_params.h"
+#include "si70xx.h"
+#define SENSOR_POWER_PIN GPIO_PIN(PA, 28)
+#include "periph/gpio.h"
+
 #include "fmt.h"
 #include "net/nanocoap.h"
-#include "hashes/sha256.h"
-#define DS18_PARAM_PIN  GPIO_PIN(PA,28)
-#include "ds18.h"
-#include "ds18_params.h"
-extern ds18_t dev;
+
+extern si70xx_t dev;
+
 /* internal value that can be read/written via CoAP */
 static uint8_t internal_value = 0;
 
 static const uint8_t block2_intro[] = "This is RIOT (Version: ";
 static const uint8_t block2_board[] = " running on a ";
 static const uint8_t block2_mcu[] = " board with a ";
-
-static ssize_t _echo_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len, void *context)
-{
-    (void)context;
-    char uri[CONFIG_NANOCOAP_URI_MAX];
-
-    if (coap_get_uri_path(pkt, (uint8_t *)uri) <= 0) {
-        return coap_reply_simple(pkt, COAP_CODE_INTERNAL_SERVER_ERROR, buf,
-                                 len, COAP_FORMAT_TEXT, NULL, 0);
-    }
-    char *sub_uri = uri + strlen("/echo/");
-    size_t sub_uri_len = strlen(sub_uri);
-    return coap_reply_simple(pkt, COAP_CODE_CONTENT, buf, len, COAP_FORMAT_TEXT,
-                             (uint8_t *)sub_uri, sub_uri_len);
-}
 
 static ssize_t _riot_board_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len, void *context)
 {
@@ -112,100 +100,33 @@ static ssize_t _riot_value_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len, vo
             COAP_FORMAT_TEXT, (uint8_t*)rsp, p);
 }
 
-ssize_t _sha256_handler(coap_pkt_t* pkt, uint8_t *buf, size_t len, void *context)
-{
-    (void)context;
+static ssize_t _temp_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len, void *context) {
+    (void) context;
 
-    /* using a shared sha256 context *will* break if two requests are handled
-     * at the same time.  doing it anyways, as this is meant to showcase block1
-     * support, not proper synchronisation. */
-    static sha256_context_t sha256;
+    ssize_t p = 0;
+    char rsp[16];
+    unsigned code = COAP_CODE_EMPTY;
 
-    uint8_t digest[SHA256_DIGEST_LENGTH];
+    /* get temp in celsius */
+    gpio_set(SENSOR_POWER_PIN);
 
-    uint32_t result = COAP_CODE_204;
-
-    coap_block1_t block1;
-    int blockwise = coap_get_block1(pkt, &block1);
-
-    printf("_sha256_handler(): received data: offset=%u len=%u blockwise=%i more=%i\n", \
-            (unsigned)block1.offset, pkt->payload_len, blockwise, block1.more);
-
-    if (block1.offset == 0) {
-        puts("_sha256_handler(): init");
-        sha256_init(&sha256);
-    }
-
-    sha256_update(&sha256, pkt->payload, pkt->payload_len);
-
-    if (block1.more == 1) {
-        result = COAP_CODE_CONTINUE;
-    }
-
-    size_t result_len = 0;
-    if (!blockwise || !block1.more) {
-        puts("_sha256_handler(): finish");
-        sha256_final(&sha256, digest);
-        result_len = SHA256_DIGEST_LENGTH * 2;
-    }
-
-    ssize_t reply_len = coap_build_reply(pkt, result, buf, len, 0);
-    uint8_t *pkt_pos = (uint8_t*)pkt->hdr + reply_len;
-    if (blockwise) {
-        pkt_pos += coap_opt_put_block1_control(pkt_pos, 0, &block1);
-    }
-    if (result_len) {
-        *pkt_pos++ = 0xFF;
-        pkt_pos += fmt_bytes_hex((char *)pkt_pos, digest, sizeof(digest));
-    }
-
-    return pkt_pos - (uint8_t*)pkt->hdr;
-}
-
-static ssize_t _riot_tem_handler(coap_pkt_t *pkt, uint8_t *buf, size_t len, void *context)
-{
+    int16_t temperature = si70xx_get_temperature(&dev);
+    p += fmt_s16_dec(rsp, temperature);
+    code = COAP_CODE_CONTENT;
     
-     (void) context;
+    gpio_clear(SENSOR_POWER_PIN);
 
-     ssize_t p = 0;
-     char rsp[16];
-     unsigned code = COAP_CODE_EMPTY;
-     int16_t temperature;
-     ds18_t dev;
-     int result;
-     gpio_set(DS18_PARAM_PIN);
-     /* get temp in celsius */
-     result = ds18_init(&dev, &ds18_params[0]);
-     if (result == DS18_ERROR) {
-        puts("[Error] The sensor pin could not be initialized");
-        return 1;
-     }
-   
-     if (ds18_get_temperature(&dev, &temperature) == DS18_OK) {
-         bool negative = (temperature < 0);
-         if (negative) {
-            temperature = -temperature;
-         }
-         float a = (float)temperature / 100;
-         p += fmt_float(rsp,a,2);
-         code = COAP_CODE_CONTENT;
-     }
-     else code = COAP_CODE_INTERNAL_SERVER_ERROR;
-     gpio_clear(DS18_PARAM_PIN);
-
-     return coap_reply_simple(pkt, code, buf, len,
-             COAP_FORMAT_TEXT, (uint8_t*)rsp, p);
+    return coap_reply_simple(pkt, code, buf, len,
+            COAP_FORMAT_TEXT, (uint8_t*)rsp, p);
 }
 
 /* must be sorted by path (ASCII order) */
 const coap_resource_t coap_resources[] = {
     COAP_WELL_KNOWN_CORE_DEFAULT_HANDLER,
-    { "/echo/", COAP_GET | COAP_MATCH_SUBTREE, _echo_handler, NULL },
     { "/riot/board", COAP_GET, _riot_board_handler, NULL },
-    { "/riot/tem", COAP_GET, _riot_tem_handler, NULL },
     { "/riot/value", COAP_GET | COAP_PUT | COAP_POST, _riot_value_handler, NULL },
     { "/riot/ver", COAP_GET, _riot_block2_handler, NULL },
-    { "/sha256", COAP_POST, _sha256_handler, NULL },
+    { "/temp", COAP_GET, _temp_handler, NULL },
 };
 
 const unsigned coap_resources_numof = ARRAY_SIZE(coap_resources);
